@@ -1,0 +1,35 @@
+const User = require('../model/User');
+const generateToken = (id) => {
+    return jwt.sign({id}, process.env.JWT_SECRET, {expiresIn: '30d'});
+}
+
+const registerUser = async (req, res) => {
+    const {name, email, password} = req.body;
+    try{
+        const existingUser = await User.findOne({email});
+        if(existingUser) {
+            return res.status(400).json({message: 'User already exists'});
+        }
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const user = User.create({name, email, password: hashedPassword});
+        if(user) {
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+            const message = `
+            Welcome to CharmYou, ${name}! Thankyou for registering with us. We are excited to have you as part of our community. To complete your registration, please use the following One-Time Password (OTP):
+            Your OTP for CharmYou registration is: ${otp}`;
+
+            await sendEmail(email, 'Welcome to CharmYou - Your OTP for Registration', message);
+
+            res.status(201).json({
+                
+                message: 'User registered successfully. Please check your email for the OTP'
+            });
+        }
+        
+    }catch (error){
+        res.status(500).json({message: 'Server error'});
+    }
+}
